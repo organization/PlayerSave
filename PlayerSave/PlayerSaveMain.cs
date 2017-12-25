@@ -11,7 +11,23 @@ namespace PlayerSave
     {
         protected override void OnEnable()
         {
-            
+            Context.Server.PlayerFactory.PlayerCreated += PlayerFactory_PlayerCreated;
+        }
+
+        private void PlayerFactory_PlayerCreated(object sender, MiNET.PlayerEventArgs e)
+        {
+            e.Player.PlayerJoin += Player_PlayerJoin;
+            e.Player.PlayerLeave += Player_PlayerLeave;
+        }
+
+        private void Player_PlayerLeave(object sender, MiNET.PlayerEventArgs e)
+        {
+            e.Player.Save(true);
+        }
+
+        private void Player_PlayerJoin(object sender, MiNET.PlayerEventArgs e)
+        {
+            throw new NotImplementedException();
         }
     }
 }
