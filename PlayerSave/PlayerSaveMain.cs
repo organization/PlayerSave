@@ -27,7 +27,7 @@ namespace PlayerSave
 
         private void Player_PlayerJoin(object sender, MiNET.PlayerEventArgs e)
         {
-            throw new NotImplementedException();
+            e.Player.Load();
         }
     }
 }

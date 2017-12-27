@@ -4,6 +4,7 @@ using MiNET.Effects;
 using MiNET.Items;
 using MiNET.Net;
 using MiNET.Utils;
+using MiNET.Worlds;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,11 +18,92 @@ namespace PlayerSave
 {
     public static class PlayerSaveExtension
     {
+        public static void Load(this Player player)
+        {
+            try
+            {
+                string path = Config.GetProperty("PluginDirectory", ".\\") + "\\PlayerSave\\players\\" + player.PlayerInfo.Username.ToLower() + ".dat";
+                NbtFile file = new NbtFile();
+
+                file.LoadFromFile(path, NbtCompression.ZLib, null);
+
+                NbtCompound nbt = file.RootTag;
+
+                NbtString levelName = nbt["Level"] as NbtString;
+                Level level = player.GetServer().LevelManager.Levels.Find(obj =>
+                {
+                    return obj.LevelName == levelName.Value;
+                });
+                if (level == null) return;
+                NbtList pos = nbt["Pos"] as NbtList;
+                NbtList rotation = nbt["Rotation"] as NbtList;
+                player.SpawnLevel(level, new PlayerLocation(pos[0].DoubleValue, pos[1].DoubleValue, pos[2].DoubleValue, 0, rotation[0].FloatValue, rotation[1].FloatValue));
+
+                player.HealthManager.Health = (int)nbt["Health"].FloatValue;
+
+                //이펙트 보류
+                //NbtList effects = nbt["ActiveEffects"] as NbtList;
+
+                //foreach (NbtTag tag in effects)
+                //{
+                //    NbtCompound effectNbt = tag as NbtCompound;
+                //}
+
+                player.HungerManager.Hunger = nbt["foodlevel"].IntValue;
+                player.HungerManager.Saturation = nbt["foodSaturationLevel"].FloatValue;
+                player.HungerManager.Exhaustion = nbt["foodExhaustionLevel"].FloatValue;
+
+                player.Experience = nbt["XpP"].FloatValue;
+                player.ExperienceLevel = nbt["XpLevel"].IntValue;
+
+                NbtList inventoryList = nbt["Inventory"] as NbtList;
+
+                for (int i = 0; i < inventoryList.Count; i++)
+                {
+                    NbtCompound invNbt = inventoryList[i] as NbtCompound;
+                    byte slot = invNbt["Slot"].ByteValue;
+                    if (slot < 100)
+                    {
+                        if (player.Inventory.Slots.Count > i)
+                            player.Inventory.SetInventorySlot(slot, ItemFactory.GetItem(invNbt["id"].ShortValue, invNbt["Damage"].ShortValue, invNbt["Count"].ByteValue));
+                    }
+                    else
+                    {
+                        switch (slot)
+                        {
+                            case 100:
+                                player.Inventory.Helmet = ItemFactory.GetItem(invNbt["id"].ShortValue, invNbt["Damage"].ShortValue, invNbt["Count"].ByteValue);
+                                break;
+                            case 101:
+                                player.Inventory.Chest = ItemFactory.GetItem(invNbt["id"].ShortValue, invNbt["Damage"].ShortValue, invNbt["Count"].ByteValue);
+                                break;
+                            case 102:
+                                player.Inventory.Leggings = ItemFactory.GetItem(invNbt["id"].ShortValue, invNbt["Damage"].ShortValue, invNbt["Count"].ByteValue);
+                                break;
+                            case 103:
+                                player.Inventory.Boots = ItemFactory.GetItem(invNbt["id"].ShortValue, invNbt["Damage"].ShortValue, invNbt["Count"].ByteValue);
+                                break;
+                        }
+                    }
+                }
+                player.Inventory.InHandSlot = nbt["SelectedInventorySlot"].IntValue;
+                player.SetGameMode((GameMode)nbt["playerGameType"].IntValue);
+            }
+            catch (Exception e)
+            {
+                ConsoleColor col = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(e.Message);
+                Console.WriteLine(e.StackTrace);
+                Console.ForegroundColor = col;
+            }
+        }
+
         public static void Save(this Player player, bool async = false)
         {
             NbtCompound namedTag = new NbtCompound("");
             namedTag.Add(player.GetNbtPos());
-            namedTag.Add(player.GetNbtRotation());
+            namedTag.Add(player.GetNbtRotation()); 
 
             namedTag.Add(player.GetNbtHealth());
             namedTag.Add(player.GetNbtEffects());
@@ -130,7 +212,7 @@ namespace PlayerSave
             tags[103] = player.Inventory.Boots.NbtSerialize(103);
 
 
-            NbtList nbt = new NbtList("Inventroy", tags, NbtTagType.Compound);
+            NbtList nbt = new NbtList("Inventory", tags, NbtTagType.Compound);
 
             //@TODO EnderChest
 
